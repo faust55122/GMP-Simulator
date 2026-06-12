@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GMP Qualification Simulator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600&family=Source+Code+Pro:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="game">
+
+  <div class="header">
+    <div>
+      <h1>GMP QUALIFICATION SIMULATOR</h1>
+      <div class="subtitle">INHALATIVA EDITION — Lieben Sie das Papier.</div>
+    </div>
+    <div class="header-right">
+      Woche <strong id="week">1</strong> / 20<br>
+      Phase: <strong id="phase-name">URS &amp; Planung</strong><br>
+      <span id="dival-status" style="display:none;background:rgba(255,255,255,0.2);border-radius:4px;padding:2px 8px;font-size:11px;color:#fff;margin-top:4px"></span>
+    </div>
+  </div>
+
+  <div class="progress-section">
+    <div class="progress-label">
+      <span>Qualifizierungsfortschritt</span>
+      <span id="progress-pct">0 %</span>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+    </div>
+  </div>
+
+  <div class="phase-track" id="phase-track">
+    <div class="phase active" id="ph-0">URS</div>
+    <div class="phase" id="ph-1">DQ</div>
+    <div class="phase" id="ph-2">FAT</div>
+    <div class="phase" id="ph-3">IQ</div>
+    <div class="phase" id="ph-4">OQ</div>
+    <div class="phase" id="ph-5">PQ</div>
+    <div class="phase" id="ph-6">Freigabe</div>
+  </div>
+
+  <div class="main-grid">
+
+    <div class="card">
+      <div class="card-title">Projektkennzahlen</div>
+      <div class="kpi-grid" id="kpi-grid"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Persönliche Fähigkeiten</div>
+      <div id="skills-display"></div>
+    </div>
+
+    <div class="card actions-panel">
+      <div class="card-title">Aktionen</div>
+      <div class="ap-row">
+        <div class="ap-badge" id="ap-display">⬡ AP: 5 / 5</div>
+        <button class="end-btn" id="end-turn-btn" onclick="endTurn()">Runde beenden →</button>
+      </div>
+      <div class="action-tabs">
+        <button class="tab active" onclick="switchTab('project')">Projektaktivitäten</button>
+        <button class="tab" onclick="switchTab('personal')">Persönliche Entwicklung</button>
+      </div>
+      <div class="action-grid" id="action-grid"></div>
+    </div>
+
+    <div class="card event-box">
+      <div class="card-title">Letzte Ereignisse</div>
+      <div id="event-display" class="event-msg" style="color:var(--text3);font-style:italic">
+        Noch keine Ereignisse. Das Projekt beginnt ruhig — genießen Sie es.
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- End-screen overlay -->
+<div class="overlay" id="overlay" style="display:none">
+  <div class="modal">
+    <h2 id="modal-title"></h2>
+    <div class="outcome" id="modal-body"></div>
+    <button class="modal-btn" id="modal-btn" onclick="restartGame()">Neu starten</button>
+  </div>
+</div>
+
+<script src="game.js"></script>
+</body>
+</html>
