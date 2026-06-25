@@ -6,8 +6,8 @@
 //  HIGHSCORE — JSONBin.io Konfiguration
 //  Trage hier deine eigenen Werte ein:
 // ============================================================
-const JSONBIN_API_KEY  = '$2a$10$25KUTuEXfrhJx..46EAvRuQlyMLiuD2G8YfXy8T3B4n/51wpKiS0C';   // z.B. '$2a$10$abc123...'
-const JSONBIN_BIN_ID   = '6a32e013da38895dfed1ffff';   // z.B. '6849abc12e...'
+const JSONBIN_API_KEY  = 'DEIN_API_KEY_HIER';   // z.B. '$2a$10$abc123...'
+const JSONBIN_BIN_ID   = 'DEINE_BIN_ID_HIER';   // z.B. '6849abc12e...'
 const JSONBIN_BASE_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
 const HS_ADMIN_PW      = 'gmp-reset-2025';       // ← Admin-Passwort für Reset (ändern!)
 const HS_MAX_ENTRIES   = 20;
@@ -140,6 +140,14 @@ async function hsAdminReset() {
   await hsSave([]);
   msg.textContent = '✅ Highscore geleert!'; msg.style.color = 'var(--green)';
   setTimeout(() => showHighscoreOverlay(null, null), 1000);
+}
+
+// ── Layout-Umschaltung (Breit/Hochkant) ─────────────────────
+function toggleLayout() {
+  const game = document.getElementById('game');
+  const btn  = document.getElementById('layout-toggle-btn');
+  const isWide = game.classList.toggle('wide-layout');
+  btn.textContent = isWide ? '⬛ Hochkant-Ansicht' : '⬜ Breit-Ansicht';
 }
 
 

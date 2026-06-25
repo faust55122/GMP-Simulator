@@ -84,7 +84,7 @@ body {
   font-size: 12px;
   color: rgba(255,255,255,0.7);
   letter-spacing: 0.8px;
-  margin-top: 2px;
+  margin-top: 1px;
 }
 .header-right {
   text-align: right;
@@ -177,6 +177,42 @@ body {
   gap: 12px;
   margin-bottom: 12px;
 }
+
+/* ---- Wide Layout (Desktop toggle) ---- */
+#game.wide-layout { max-width: 1400px; }
+#game.wide-layout .main-grid {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+#game.wide-layout .main-grid > .card:nth-child(1) { order: 1; }
+#game.wide-layout .main-grid > .card:nth-child(2) { order: 2; }
+#game.wide-layout .actions-panel {
+  grid-column: 1 / -1;
+  order: 4;
+}
+#game.wide-layout .action-grid {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+#game.wide-layout .event-box {
+  grid-column: auto;
+  margin-top: 0;
+  order: 3;
+}
+
+/* ---- Layout Toggle Button ---- */
+.layout-toggle-btn {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.4);
+  border-radius: var(--radius-sm);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 10px;
+  cursor: pointer;
+  margin-top: 8px;
+  font-family: 'Source Sans 3', sans-serif;
+  transition: background 0.2s;
+}
+.layout-toggle-btn:hover { background: rgba(255,255,255,0.28); }
 
 /* ---- KPIs ---- */
 .kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
