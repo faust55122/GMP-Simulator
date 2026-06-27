@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GMP Qualification Simulator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600&family=Source+Code+Pro:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="game">
+
+  <div class="header">
+    <div>
+      <h1>GMP QUALIFICATION SIMULATOR</h1>
+      <div class="subtitle" id="game-subtitle">INHALATIVA EDITION — Lieben Sie das Papier.</div>
+      <button class="layout-toggle-btn" id="layout-toggle-btn" onclick="toggleLayout()">⬜ Breit-Ansicht</button>
+    </div>
+    <div class="header-right">
+      <div id="equipment-name" style="font-size:13px;font-weight:600;color:rgba(255,255,255,0.95);margin-bottom:3px;letter-spacing:0.5px"></div>
+      Woche <strong id="week">1</strong> / 20<br>
+      Phase: <strong id="phase-name">URS &amp; Planung</strong> &nbsp;·&nbsp; <span id="efficiency-display" style="font-size:12px;color:rgba(255,255,255,0.85)"></span><br>
+      <span id="dival-status" style="display:none;background:rgba(255,255,255,0.2);border-radius:4px;padding:2px 8px;font-size:11px;color:#fff;margin-top:4px"></span>
+    </div>
+  </div>
+
+  <div class="progress-section">
+    <div class="progress-label">
+      <span>Qualifizierungsfortschritt</span>
+      <span id="progress-pct">0 %</span>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+    </div>
+  </div>
+
+  <div class="phase-track" id="phase-track">
+    <div class="phase active" id="ph-0">URS</div>
+    <div class="phase" id="ph-1">DQ</div>
+    <div class="phase" id="ph-2">FAT</div>
+    <div class="phase" id="ph-3">IQ</div>
+    <div class="phase" id="ph-4">OQ</div>
+    <div class="phase" id="ph-5">PQ</div>
+    <div class="phase" id="ph-6">Freigabe</div>
+  </div>
+
+  <div class="main-grid">
+
+    <div class="card">
+      <div class="card-title">Projektkennzahlen</div>
+      <div class="kpi-grid" id="kpi-grid"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Persönliche Fähigkeiten</div>
+      <div id="skills-display"></div>
+    </div>
+
+    <div class="card actions-panel">
+      <div class="card-title">Aktionen</div>
+      <div class="ap-row">
+        <div class="ap-badge" id="ap-display">⬡ AP: 5 / 5</div>
+        <button class="end-btn" id="end-turn-btn" onclick="endTurn()">Runde beenden →</button>
+      </div>
+      <div class="action-tabs">
+        <button class="tab active" onclick="switchTab('project')">Projektaktivitäten</button>
+        <button class="tab" onclick="switchTab('personal')">Persönliche Entwicklung</button>
+      </div>
+      <div class="action-grid" id="action-grid"></div>
+    </div>
+
+    <div class="card event-box">
+      <div class="card-title">Letzte Ereignisse</div>
+      <div id="event-display" class="event-msg" style="color:var(--text3);font-style:italic">
+        Noch keine Ereignisse. Das Projekt beginnt ruhig — genießen Sie es.
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- End-screen overlay -->
+<div class="overlay" id="overlay" style="display:none">
+  <div class="modal">
+    <h2 id="modal-title"></h2>
+    <div class="outcome" id="modal-body"></div>
+    <button class="modal-btn" id="modal-btn" onclick="restartGame()">Neu starten</button>
+    <button class="modal-btn" id="hs-open-btn" onclick="showHighscoreOverlay(state.lastFinalScore, null)" style="display:none;margin-top:8px;background:var(--blue);border-color:var(--blue)">🏆 Highscore</button>
+  </div>
+</div>
+
+<!-- Highscore overlay -->
+<div class="overlay" id="hs-overlay" style="display:none">
+  <div class="modal" style="max-width:520px;max-height:90vh;overflow-y:auto">
+    <h2 style="font-size:17px;margin-bottom:12px;color:var(--teal)">🏆 Hall of Fame</h2>
+    <div id="hs-content"></div>
+    <button class="modal-btn" onclick="document.getElementById('hs-overlay').style.display='none'" style="margin-top:18px">Schließen</button>
+  </div>
+</div>
+
+<!-- Start screen overlay -->
+<div class="overlay" id="start-overlay">
+  <div class="modal">
+    <h2 class="win-legend" style="font-size:18px;margin-bottom:6px">📋 GMP Qualification Simulator</h2>
+    <div class="outcome" style="text-align:left;font-size:13px;line-height:1.7">
+
+      <p style="margin:0 0 10px"><strong>Ihr Auftrag:</strong> Ein neues Gerät GMP-konform qualifizieren und die Quality-Freigabe erhalten. Klingt einfach. Ist es nicht.</p>
+
+      <p style="margin:0 0 6px"><strong>So funktioniert's:</strong></p>
+      <ul style="margin:0 0 10px;padding-left:18px">
+        <li>Jede Runde haben Sie <strong>4 Aktionspunkte (AP)</strong> für Projektarbeit oder persönliche Weiterbildung.</li>
+        <li>Führen Sie das Projekt durch <strong>7 Phasen</strong> — von URS bis zur Freigabe.</li>
+        <li>Behalten Sie Ihre <strong>KPIs im Grünen</strong>: Vertrauen, Budget, GMP-Niveau, Risiko, Zeitplan und Motivation.</li>
+        <li>Ab Phase IQ zählt Ihre <strong>Aseptik-Kompetenz</strong> (falls das Equipment es erfordert) — unter 60 % läuft gar nichts mehr.</li>
+      </ul>
+
+      <p style="margin:0 0 6px"><strong>Was Sie wissen müssen:</strong></p>
+      <ul style="margin:0 0 10px;padding-left:18px">
+        <li>Niedrige Skills kosten jeden Zug passiv KPI-Punkte — auch wenn Sie schlafen.</li>
+        <li>Zufällige Events passieren. Meistens die falschen.</li>
+        <li>Die LiL will irgendwann Ihre Ressourcen. Eine Warnung kommt vorher — nutzen Sie sie.</li>
+        <li>Optional: DIVAL-Modus für papierlose Dokumentation. Hohes Risiko, hohe Belohnung.</li>
+      </ul>
+
+      <p style="margin:0;color:var(--text3);font-style:italic;font-size:12px">Tipp: Aseptik früh trainieren. Budget im Blick behalten. Und ja, die fehlende Unterschrift kommt immer dann, wenn man es am wenigsten braucht.</p>
+    </div>
+    <button class="modal-btn" onclick="document.getElementById('start-overlay').style.display='none'">Projekt starten →</button>
+  </div>
+</div>
+
+<script src="game.js"></script>
+</body>
+</html>
