@@ -630,7 +630,8 @@ function doProjectAction(id) {
     appliedEffects,   // tatsächlich angewendete (geclampte) KPI-Deltas für exaktes Undo
   });
 
-  if (state.kpis.budget <= 0) { showEndScreen(false); return; }
+  // Hinweis: Budget-Check erfolgt NICHT mehr hier, sondern erst am Rundenende
+  // (_checkLoseConditions), damit der Spieler innerhalb der Runde noch reagieren kann.
   render();
 }
 
@@ -1055,11 +1056,11 @@ function showEndScreen(win, reason) {
     const divalBonus = state.divalResult === 'success' ? 100
       : (state.divalActive && state.divalResult !== 'success') ? -50 : 0;
 
-    // Skalierung: kpiScore (0–100) × 5 = 0–500, skillAvg (0–100) × 1.5 = 0–150
+    // Skalierung: kpiScore (0–100) × 6.5 = 0–650, skillAvg (0–100) × 1.5 = 0–150
     // + risikoBonus (0–40) + weekScore (0–80) + divalBonus (+100 Erfolg / −50 Fail)
-    // Theoretisches Maximum OHNE DIVAL: 770 → Legendär (≥850) braucht DIVAL-Erfolg
-    // Theoretisches Maximum MIT DIVAL-Erfolg: 870
-    const rawScore   = kpiScore * 5 + skillAvg * 1.5 + risikoBonus + weekScore + divalBonus;
+    // Theoretisches Maximum OHNE DIVAL: 920 (gecappt 900) → Legendär (≥830) bei sehr gutem KPI-Management
+    // auch ohne Extrem-Speedrun erreichbar; DIVAL bleibt zusätzlicher Hebel/Risiko
+    const rawScore   = kpiScore * 6.5 + skillAvg * 1.5 + risikoBonus + weekScore + divalBonus;
     const finalScore = Math.min(900, Math.round(rawScore));
 
     let divalText = '';
@@ -1118,7 +1119,11 @@ function showEndScreen(win, reason) {
       loseText = 'Das Team hat die Motivation verloren. Alle Urlaube wurden gleichzeitig eingereicht. Das Projekt liegt still.';
     else
       loseText = 'Die maximale Projektlaufzeit ist erreicht. Das Equipment wartet. Quality auch. Alle warten. Für immer.';
-    mb.innerHTML = `<span>${loseText}</span>${_buildChallengesHtml()}`;
+    // Auslösendes Event nur zeigen, wenn der Verlust durch ein Rundenend-Event kam (nicht bei direkter Aktion)
+    const triggerEvent = (state.lastEvent && reason !== 'action')
+      ? `\n\n📌 Auslösendes Ereignis: ${state.lastEvent.msg}`
+      : '';
+    mb.innerHTML = `<span style="white-space:pre-wrap">${loseText}${triggerEvent}</span>${_buildChallengesHtml()}`;
     mbtn.className = 'modal-btn lose';
     const hsBtn = document.getElementById('hs-open-btn');
     if (hsBtn) hsBtn.style.display = 'none';
@@ -1309,6 +1314,15 @@ function render() {
 
   // ---- Events ----
   const ed = document.getElementById('event-display');
+  function _decayLine() {
+    const decayLines = ['Motivation −2 %', 'Budget −1 %', 'Zeitplan −2 %', 'Vertrauen −1 %'];
+    if (state.skills.pm > 55) decayLines.push('PM-Bonus: Budget +1 %');
+    if (state.skills.gmpKnow < 55) decayLines.push('GMP niedrig: GMP-Wissen −10 %, Vertrauen −7 %');
+    if (state.skills.komm < 45) decayLines.push('Komm. niedrig: Zeitplan −3 %, Motivation −2 %');
+    if (state.skills.tech < 60) decayLines.push('Tech. niedrig: Risiko −5 % ⚠️, Wissen −4 %');
+    if (state.equipment.requiresAseptik && state.skills.aseptik < 45) decayLines.push('Aseptik niedrig: Vertrauen −3 %, Risiko −2 % ⚠️');
+    return `<div style="margin-top:6px;font-size:11px;opacity:0.7">📉 Passiver Rundenabzug: ${decayLines.join(' · ')}</div>`;
+  }
   if (state.lastEvent) {
     const isLil     = !!state.lastEvent.isLil;
     const isLilWarn = !!state.lastEvent.isLilWarn;
@@ -1330,22 +1344,12 @@ function render() {
     ed.innerHTML = `<div style="${boxStyle}">
       <div class="event-msg">${state.lastEvent.msg}</div>
       <div class="event-effects">${pills}${penaltyPill}</div>
+      ${state.week > 1 ? _decayLine() : ''}
     </div>`;
   } else if (state.week > 1) {
-    // Passive decay summary — zeige was diese Runde passiv passiert ist
-    const decayLines = [];
-    decayLines.push('Motivation −2 %');
-    decayLines.push('Budget −1 %');
-    decayLines.push('Zeitplan −2 %');
-    decayLines.push('Vertrauen −1 %');
-    if (state.skills.pm > 55) decayLines.push('PM-Bonus: Budget +1 %');
-    if (state.skills.gmpKnow < 55) decayLines.push('GMP niedrig: GMP-Wissen −10 %, Vertrauen −7 %');
-    if (state.skills.komm < 45) decayLines.push('Komm. niedrig: Zeitplan −3 %, Motivation −2 %');
-    if (state.skills.tech < 60) decayLines.push('Tech. niedrig: Risiko −5 % ⚠️, Wissen −4 %');
-    if (state.equipment.requiresAseptik && state.skills.aseptik < 45) decayLines.push('Aseptik niedrig: Vertrauen −3 %, Risiko −2 % ⚠️');
     ed.innerHTML = `<div style="color:var(--text3);font-size:12px">
       <span style="font-style:italic">Diese Woche keine Ereignisse.</span>
-      <div style="margin-top:6px;font-size:11px;opacity:0.7">📉 Passiver Rundenabzug: ${decayLines.join(' · ')}</div>
+      ${_decayLine()}
     </div>`;
   }
 
@@ -1395,13 +1399,15 @@ function renderActionGrid() {
       if (a.divalSlot && state.divalActive) {
         const slots      = PROJECT_ACTIONS.filter(x => x.divalSlot);
         const isUsed     = hasUsed(state.divalUsed, a.id);
-        if (isUsed) return '';   // bereits genutzt → komplett ausblenden
-        const unusedSlots = slots.filter(x => !hasUsed(state.divalUsed, x.id));
+        // Bereits genutzt, ABER diese Runde noch per Undo rückgängig machbar → sichtbar lassen
+        const hasUndoThisTurn = state.turnHistory.some(e => e.actionId === a.id);
+        if (isUsed && !hasUndoThisTurn) return '';   // aus früherer Runde genutzt → ausblenden
+        const unusedSlots = slots.filter(x => !hasUsed(state.divalUsed, x.id) || state.turnHistory.some(e => e.actionId === x.id));
         // Aus den ungenutzten nur die ersten 2 anzeigen (rotierend via Offset)
         const visibleIds = unusedSlots.slice(state.divalSlotOffset % Math.max(1, unusedSlots.length),
                                               state.divalSlotOffset % Math.max(1, unusedSlots.length) + 2);
         const clampedVisible = visibleIds.length < 2 ? unusedSlots.slice(0, 2) : visibleIds;
-        if (!clampedVisible.find(x => x.id === a.id)) return '';
+        if (!clampedVisible.find(x => x.id === a.id) && !hasUndoThisTurn) return '';
       }
       if (a.divalOnly && !a.divalSlot && !state.divalActive) return '';
 
