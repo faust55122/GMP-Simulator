@@ -198,6 +198,12 @@ body {
   order: 3;
 }
 
+/* Passiver Decay: kompakte Zeile standardmäßig, kategorisierte Zeilen nur in der breiten Ansicht */
+.decay-wide   { display: none; }
+.decay-compact { display: block; }
+#game.wide-layout .decay-wide   { display: block; }
+#game.wide-layout .decay-compact { display: none; }
+
 /* ---- Layout Toggle Button ---- */
 .layout-toggle-btn {
   background: rgba(255,255,255,0.15);

@@ -819,23 +819,57 @@ function _applyPassiveDecay() {
   state.kpis.vertrauen  = clamp(state.kpis.vertrauen - 1);
   // PM > 55 %: stiller Budget-Bonus +1 % (kompensiert teilweise den Decay)
   if (state.skills.pm > 55) state.kpis.budget = clamp(state.kpis.budget + 1);
-  // Skill-basierte Abzüge (kumulativ)
-  if (state.skills.gmpKnow >= 10 && state.skills.gmpKnow < 55) {
-    state.kpis.gmp       = clamp(state.kpis.gmp - 10);
-    state.kpis.vertrauen = clamp(state.kpis.vertrauen - 7);
-  }
-  if (state.skills.komm >= 10 && state.skills.komm < 45) {
+
+  // --- GMP-Wissen: gestufter Abzug auf GMP-KPI + gestufter Vertrauens-Malus ---
+  const g = state.skills.gmpKnow;
+  let gmpMalus = 0;
+  if (g >= 10 && g <= 30)      gmpMalus = 10;
+  else if (g >= 31 && g <= 45) gmpMalus = 5;
+  else if (g >= 46 && g <= 60) gmpMalus = 1;
+  // ab 61 %: kein Abzug auf GMP
+  if (gmpMalus > 0) state.kpis.gmp = clamp(state.kpis.gmp - gmpMalus);
+
+  let gmpVertrauenMalus = 0;
+  if (g >= 10 && g <= 30)      gmpVertrauenMalus = 7;
+  else if (g >= 31 && g <= 45) gmpVertrauenMalus = 5;
+  else if (g >= 46 && g <= 60) gmpVertrauenMalus = 3;
+  else if (g >= 61 && g <= 71) gmpVertrauenMalus = 1;
+  // ab 72 %: kein Vertrauens-Abzug mehr
+  if (gmpVertrauenMalus > 0) state.kpis.vertrauen = clamp(state.kpis.vertrauen - gmpVertrauenMalus);
+
+  // --- Kommunikation: gestufte Effekte auf Zeitplan/Motivation/Vertrauen ---
+  const k = state.skills.komm;
+  if (k >= 10 && k <= 30) {
+    state.kpis.zeit       = clamp(state.kpis.zeit - 3);
+    state.kpis.motivation = clamp(state.kpis.motivation - 3);
+    state.kpis.vertrauen  = clamp(state.kpis.vertrauen - 1);
+  } else if (k >= 31 && k <= 39) {
     state.kpis.zeit       = clamp(state.kpis.zeit - 3);
     state.kpis.motivation = clamp(state.kpis.motivation - 2);
+  } else if (k >= 40 && k <= 60) {
+    state.kpis.zeit = clamp(state.kpis.zeit - 2);
   }
+  // ab 61 %: keine KPI-Effekte mehr (nur Event-Wahrscheinlichkeit, siehe _rollRandomEvent)
+
+  // --- Aseptik: gestufte Effekte auf Vertrauen + Risikostatus (nur bei Aseptik-Equipment) ---
+  // Hinweis: state.kpis.risiko ist intern invertiert (niedriger = besser/sicherer).
+  // "+1% Risikostatus" (angezeigt) bedeutet also intern risiko -1.
+  if (state.equipment.requiresAseptik) {
+    const a = state.skills.aseptik;
+    let vertrauenDelta = 0, risikostatusDelta = 0; // risikostatusDelta in ANGEZEIGTEN Prozentpunkten
+    if (a >= 10 && a <= 30)      { vertrauenDelta = -3; risikostatusDelta = -3; }
+    else if (a >= 31 && a <= 45) { vertrauenDelta = -2; risikostatusDelta = -2; }
+    else if (a >= 46 && a <= 60) { vertrauenDelta = -1; risikostatusDelta = -1; }
+    else if (a >= 61 && a <= 75) { vertrauenDelta =  1; risikostatusDelta =  1; }
+    else if (a >= 76)            { vertrauenDelta =  2; risikostatusDelta =  2; }
+    state.kpis.vertrauen = clamp(state.kpis.vertrauen + vertrauenDelta);
+    state.kpis.risiko    = clamp(state.kpis.risiko - risikostatusDelta); // invertiert!
+  }
+
+  // --- Technisches Verständnis: unverändert (Risiko/Wissen) ---
   if (state.skills.tech < 60) {
     state.kpis.risiko = clamp(state.kpis.risiko + 5);
     state.kpis.wissen = clamp(state.kpis.wissen - 4);
-  }
-  // Aseptik-Decay nur wenn Equipment Aseptik erfordert
-  if (state.equipment.requiresAseptik && state.skills.aseptik < 45) {
-    state.kpis.vertrauen = clamp(state.kpis.vertrauen - 3);
-    state.kpis.risiko    = clamp(state.kpis.risiko + 2);
   }
 }
 
@@ -863,16 +897,18 @@ function _rollRandomEvent() {
 
   // Kommunikation dämpft Bad-Events (max +12 % bei komm=0, nicht +25 %)
   const kommMalus   = (1 - state.skills.komm / 100) * 0.12;
-  // Hohe Skills senken Bad-Events aktiv (bis -8 % wenn alle Skills > 60)
+  // Hohe Skills senken Bad-Events aktiv (bis -12 % wenn alle Skills > 60)
   const avgSkillPct = (state.skills.gmpKnow + state.skills.tech + state.skills.aseptik + state.skills.komm) / 4;
-  const skillProtection = (avgSkillPct / 100) * 0.08;
+  const skillProtection = (avgSkillPct / 100) * 0.12;
+  // Ab Komm >= 61 %: zusätzlicher expliziter Bonus (niedrigere Bad-, höhere Good-Chance)
+  const kommHighBonus = state.skills.komm >= 61 ? 0.05 : 0;
 
   const badThreshold  = state.week <= 3
     ? 0
-    : Math.max(0, 0.12 + riskFactor * 0.12 + kommMalus - skillProtection); // max ~28 %, min 0
+    : Math.max(0, 0.12 + riskFactor * 0.12 + kommMalus - skillProtection - kommHighBonus); // max ~28 %, min 0
   // Gute Events: Skills erhöhen die Chance aktiv
-  const skillBoost    = (avgSkillPct / 100) * 0.08;
-  const goodThreshold = 1 - (0.15 + trustFactor * 0.10 + skillBoost);      // bei hohen Skills öfter
+  const skillBoost    = (avgSkillPct / 100) * 0.12;
+  const goodThreshold = 1 - (0.15 + trustFactor * 0.10 + skillBoost + kommHighBonus);      // bei hohen Skills öfter
 
   if (roll < badThreshold) {
     const eligible = EVENTS_BAD.filter(e =>
@@ -1056,11 +1092,11 @@ function showEndScreen(win, reason) {
     const divalBonus = state.divalResult === 'success' ? 100
       : (state.divalActive && state.divalResult !== 'success') ? -50 : 0;
 
-    // Skalierung: kpiScore (0–100) × 6.5 = 0–650, skillAvg (0–100) × 1.5 = 0–150
+    // Skalierung: kpiScore (0–100) × 7.5 = 0–750, skillAvg (0–100) × 1.5 = 0–150
     // + risikoBonus (0–40) + weekScore (0–80) + divalBonus (+100 Erfolg / −50 Fail)
-    // Theoretisches Maximum OHNE DIVAL: 920 (gecappt 900) → Legendär (≥830) bei sehr gutem KPI-Management
-    // auch ohne Extrem-Speedrun erreichbar; DIVAL bleibt zusätzlicher Hebel/Risiko
-    const rawScore   = kpiScore * 6.5 + skillAvg * 1.5 + risikoBonus + weekScore + divalBonus;
+    // Theoretisches Maximum OHNE DIVAL: 1020 (gecappt 900) — in der Praxis nicht erreichbar,
+    // DIVAL bleibt faktisch Pflicht für Legendär (≥830) bei realistischem Spielverlauf
+    const rawScore   = kpiScore * 7.5 + skillAvg * 1.5 + risikoBonus + weekScore + divalBonus;
     const finalScore = Math.min(900, Math.round(rawScore));
 
     let divalText = '';
@@ -1147,6 +1183,8 @@ function showDivalOffer() {
     <p style="margin-bottom:16px">Die Erfolgswahrscheinlichkeit ist <strong style="color:var(--amber)">ungewiss</strong>. Bei Erfolg: <strong style="color:var(--green)">+100 Bonuspunkte</strong>. Bei Misserfolg: kein direkter Spielabbruch, aber verschwendete Ressourcen und zusätzliche negative Events.</p>
     <p style="color:var(--text3);font-size:12px">Entscheidung gilt für das gesamte restliche Spiel.</p>`;
   mbtn.style.display = 'none'; // Standard-Button ausblenden
+  const hsBtn = document.getElementById('hs-open-btn');
+  if (hsBtn) hsBtn.style.display = 'none'; // Highscore-Button gehört hier nicht hin
 
   // Buttons dynamisch ersetzen
   const modal = document.querySelector('.modal');
@@ -1315,13 +1353,50 @@ function render() {
   // ---- Events ----
   const ed = document.getElementById('event-display');
   function _decayLine() {
-    const decayLines = ['Motivation −2 %', 'Budget −1 %', 'Zeitplan −2 %', 'Vertrauen −1 %'];
-    if (state.skills.pm > 55) decayLines.push('PM-Bonus: Budget +1 %');
-    if (state.skills.gmpKnow < 55) decayLines.push('GMP niedrig: GMP-Wissen −10 %, Vertrauen −7 %');
-    if (state.skills.komm < 45) decayLines.push('Komm. niedrig: Zeitplan −3 %, Motivation −2 %');
-    if (state.skills.tech < 60) decayLines.push('Tech. niedrig: Risiko −5 % ⚠️, Wissen −4 %');
-    if (state.equipment.requiresAseptik && state.skills.aseptik < 45) decayLines.push('Aseptik niedrig: Vertrauen −3 %, Risiko −2 % ⚠️');
-    return `<div style="margin-top:6px;font-size:11px;opacity:0.7">📉 Passiver Rundenabzug: ${decayLines.join(' · ')}</div>`;
+    // Jede Kategorie ist ein eigener Eintrag: { label, text }
+    const categories = [];
+    categories.push({ label: 'Fix', text: 'Motivation −2 % · Budget −1 % · Zeitplan −2 % · Vertrauen −1 %' + (state.skills.pm > 55 ? ' · PM-Bonus: Budget +1 %' : '') });
+
+    const g = state.skills.gmpKnow;
+    const gmpParts = [];
+    if (g >= 10 && g <= 30) gmpParts.push('GMP-Wissen −10 %');
+    else if (g >= 31 && g <= 45) gmpParts.push('GMP-Wissen −5 %');
+    else if (g >= 46 && g <= 60) gmpParts.push('GMP-Wissen −1 %');
+    if (g >= 10 && g <= 30) gmpParts.push('Vertrauen −7 %');
+    else if (g >= 31 && g <= 45) gmpParts.push('Vertrauen −5 %');
+    else if (g >= 46 && g <= 60) gmpParts.push('Vertrauen −3 %');
+    else if (g >= 61 && g <= 71) gmpParts.push('Vertrauen −1 %');
+    const gmpText = gmpParts.length > 0 ? gmpParts.join(', ') : 'kein Abzug';
+    categories.push({ label: 'GMP-Kenntnis', text: gmpText });
+
+    const k = state.skills.komm;
+    let kommText = 'keine KPI-Effekte (bessere Event-Chance)';
+    if (k >= 10 && k <= 30) kommText = 'Zeitplan −3 %, Motivation −3 %, Vertrauen −1 %';
+    else if (k >= 31 && k <= 39) kommText = 'Zeitplan −3 %, Motivation −2 %';
+    else if (k >= 40 && k <= 60) kommText = 'Zeitplan −2 %';
+    categories.push({ label: 'Kommunikation', text: kommText });
+
+    if (state.skills.tech < 60) {
+      categories.push({ label: 'Technik', text: 'Risiko −5 % ⚠️, Wissen −4 %' });
+    }
+
+    if (state.equipment.requiresAseptik) {
+      const a = state.skills.aseptik;
+      let aseptikText = '';
+      if (a >= 10 && a <= 30) aseptikText = 'Vertrauen −3 %, Risikostatus −3 % ⚠️';
+      else if (a >= 31 && a <= 45) aseptikText = 'Vertrauen −2 %, Risikostatus −2 % ⚠️';
+      else if (a >= 46 && a <= 60) aseptikText = 'Vertrauen −1 %, Risikostatus −1 % ⚠️';
+      else if (a >= 61 && a <= 75) aseptikText = 'Vertrauen +1 %, Risikostatus +1 %';
+      else if (a >= 76) aseptikText = 'Vertrauen +2 %, Risikostatus +2 %';
+      if (aseptikText) categories.push({ label: 'Aseptik', text: aseptikText });
+    }
+
+    // Breite Ansicht: eine Zeile pro Kategorie. Kompakte Ansicht: alles in einer Zeile zusammengefasst.
+    const wideRows = categories.map(c => `<div>${c.label}: ${c.text}</div>`).join('');
+    const compactLine = categories.map(c => `${c.label}: ${c.text}`).join(' · ');
+    return `
+      <div class="decay-wide" style="margin-top:6px;font-size:11px;opacity:0.75;line-height:1.6">📉 Passiver Rundenabzug:${wideRows}</div>
+      <div class="decay-compact" style="margin-top:6px;font-size:11px;opacity:0.7">📉 Passiver Rundenabzug: ${compactLine}</div>`;
   }
   if (state.lastEvent) {
     const isLil     = !!state.lastEvent.isLil;
